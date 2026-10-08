@@ -1,0 +1,77 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --locked
+      - run: cargo build --release
+
+  # 主平台额外产出二进制 artifact；打 v* tag 时发布 Release
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            name: md2html-macos-arm64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            name: md2html-macos-x64
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            name: md2html-linux-x64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            name: md2html-linux-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            name: md2html-win-x64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      # linux-arm64 交叉编译需要链接器
+      - run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - run: cargo build --release --target ${{ matrix.target }}
+        env:
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+      - run: cargo build --release --target ${{ matrix.target }}
+        if: matrix.target != 'aarch64-unknown-linux-gnu'
+      - name: Smoke
+        run: ./target/${{ matrix.target }}/release/md2html --list-themes
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p dist
+          exe=target/${{ matrix.target }}/release/md2html
+          [ -f "$exe.exe" ] && exe="$exe.exe"
+          cp "$exe" dist/${{ matrix.name }}${{ matrix.target == 'x86_64-pc-windows-msvc' && '.exe' || '' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: dist/
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
