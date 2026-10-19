@@ -1,6 +1,7 @@
 //! 快照 + 渲染行为集成测试：与 JS 版 test/render.test.js 对齐。
 //! 快照是纯正文片段，头部补 charset 注释防浏览器打开乱码；
 //! UPDATE_SNAPSHOTS=1 cargo test 重新生成。
+//! 快照不入库（.gitignore）：首次 cargo test 自动生成本地基准。
 
 use std::fs;
 use std::path::Path;

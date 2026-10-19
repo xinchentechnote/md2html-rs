@@ -129,7 +129,7 @@ md2html-rs/
 │       └── editor.js       # 内嵌脚本：防抖渲染 / hydrate / ⌘S / 复制
 ├── tests/
 │   ├── fixtures/sample.md  # 元素齐全的验收样例（与 JS 版同一份）
-│   ├── __snapshots__/      # 6 主题快照（Rust 版独立基准）
+│   ├── __snapshots__/      # 6 主题快照（Rust 版独立基准；不入库，cargo test 自动生成）
 │   ├── render.rs           # 快照 + 渲染行为集成测试
 │   └── cli.rs              # 二进制冒烟测试（CARGO_BIN_EXE）
 └── .github/workflows/build.yml
@@ -275,6 +275,8 @@ pub struct Vars { font: Font, radius: Radius, spacing: Spacing, colors: Colors }
 - 未知主题报错并列出可用 id（`未知主题 "x"，可用主题: moyu, …`）。
 
 首发 6 套色板与 JS 版逐值相同：摸鱼绿 `#07C160` / 红白 `#E34D59` / 深海蓝 `#2A6AE9`（默认）/ 活力橙 `#F76B1C` / 暗夜紫 `#7C5CFC` / 蜜桃粉 `#EC6E8B`。
+
+已知的有意差异：6 套主题的 `muted` 均比 JS 版深（原值白底对比度仅 2.4~2.7:1，日期/标签/题注等 12px 小字难以辨认），统一加深至 WCAG AA 白底 ≥4.5:1，色相不变：摸鱼绿/红白 `#9CA3AF→#6B7280`、深海蓝 `#9AA6B2→#64748B`、活力橙 `#B0A49A→#82705F`、暗夜紫 `#A29BB3→#766C8C`、蜜桃粉 `#B39AA2→#83696F`。
 
 ---
 

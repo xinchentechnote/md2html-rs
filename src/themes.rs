@@ -90,6 +90,8 @@ const fn theme(
     Theme { id, name, description, vars: Vars { colors, ..DEFAULT } }
 }
 
+// muted 列与 JS 版不同：原值白底对比度仅 2.4~2.7，日期/标签/题注等 12px 小字难以辨认，
+// 统一加深至 WCAG AA（白底 ≥4.5:1），色相保持各主题原本的灰调，且仍明显浅于正文色。
 pub static THEMES: &[Theme] = &[
     theme(
         "moyu",
@@ -100,7 +102,7 @@ pub static THEMES: &[Theme] = &[
             accent_light: "#E8F8EF",
             heading: "#1A1A1A",
             text: "#3F3F3F",
-            muted: "#9CA3AF",
+            muted: "#6B7280",
             highlight: "#FFE58F",
             card_bg: "#F6F8FA",
             border: "#E5E7EB",
@@ -117,7 +119,7 @@ pub static THEMES: &[Theme] = &[
             accent_light: "#FDECEE",
             heading: "#1F1F1F",
             text: "#444444",
-            muted: "#9CA3AF",
+            muted: "#6B7280",
             highlight: "#FFE3C2",
             card_bg: "#FAF6F6",
             border: "#EFE3E3",
@@ -134,7 +136,7 @@ pub static THEMES: &[Theme] = &[
             accent_light: "#E8EFFD",
             heading: "#17212B",
             text: "#3D4852",
-            muted: "#9AA6B2",
+            muted: "#64748B",
             highlight: "#CCE0FF",
             card_bg: "#F5F8FC",
             border: "#E1E8F0",
@@ -151,7 +153,7 @@ pub static THEMES: &[Theme] = &[
             accent_light: "#FEF0E6",
             heading: "#26201B",
             text: "#4A423B",
-            muted: "#B0A49A",
+            muted: "#82705F",
             highlight: "#FFE3B8",
             card_bg: "#FAF6F1",
             border: "#F0E6DC",
@@ -168,7 +170,7 @@ pub static THEMES: &[Theme] = &[
             accent_light: "#F0EBFE",
             heading: "#1C1725",
             text: "#423B52",
-            muted: "#A29BB3",
+            muted: "#766C8C",
             highlight: "#E3D7FF",
             card_bg: "#F8F6FB",
             border: "#E9E4F2",
@@ -185,7 +187,7 @@ pub static THEMES: &[Theme] = &[
             accent_light: "#FDEBF0",
             heading: "#2B2124",
             text: "#4E4145",
-            muted: "#B39AA2",
+            muted: "#83696F",
             highlight: "#FFD9E4",
             card_bg: "#FBF6F7",
             border: "#F2E4E8",
