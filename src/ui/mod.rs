@@ -96,6 +96,7 @@ fn route(
                     "file": file.as_ref().map(|f| f.display().to_string()),
                     "content": content,
                     "theme": default_theme,
+                    "defaultTheme": themes::DEFAULT_THEME,
                     "mermaid": mermaid,
                     "themes": themes,
                 })
@@ -183,6 +184,7 @@ mod tests {
         let state: serde_json::Value = ureq::get(&format!("{url}/api/state")).call().unwrap().into_json().unwrap();
         assert_eq!(state["content"], "# 初稿");
         assert_eq!(state["theme"], "moyu");
+        assert_eq!(state["defaultTheme"], themes::DEFAULT_THEME);
         assert_eq!(state["themes"].as_array().unwrap().len(), 6);
 
         // render：服务端渲染

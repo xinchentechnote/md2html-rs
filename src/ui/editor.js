@@ -35,7 +35,8 @@
           select.appendChild(opt)
         }
         var saved = localStorage.getItem('md2html-theme')
-        state.theme = data.theme || saved || state.theme || (data.themes[0] && data.themes[0].id) || 'deepblue'
+        // 优先级：CLI -t > 上次选择 > 服务端默认主题（与 CLI 不传 -t 时一致）
+        state.theme = data.theme || saved || data.defaultTheme
         if (!saved && data.theme) localStorage.setItem('md2html-theme', state.theme)
         select.value = state.theme
         $('editor').value = data.content || ''
@@ -164,13 +165,21 @@
   }
 
   function copyArticle() {
+    // 与预览页/publish 一致：剥离头卡（标题走公众号后台标题栏）；页脚开启时视为内容一并复制
+    var clone = $('preview').cloneNode(true)
+    clone.querySelectorAll('[data-md2html-block="header"]').forEach(function (n) { n.remove() })
+    var holder = document.createElement('div')
+    holder.style.cssText = 'position:fixed;left:-9999px;top:0'
+    holder.appendChild(clone)
+    document.body.appendChild(holder)
     var range = document.createRange()
-    range.selectNodeContents($('preview'))
+    range.selectNodeContents(clone)
     var sel = window.getSelection()
     sel.removeAllRanges()
     sel.addRange(range)
     document.execCommand('copy')
     sel.removeAllRanges()
+    holder.remove()
     var btn = $('copy')
     btn.textContent = '已复制 ✓'
     setTimeout(function () { btn.textContent = '复制到公众号' }, 2000)

@@ -359,7 +359,7 @@ md2html publish <FILE>      发布到公众号草稿箱
 
 `md2html ui [file]` 启动本地服务（仅绑定 `127.0.0.1:0` 随机端口），只读写启动时指定的那一个文件，不接受任意路径。
 
-页面：左侧 textarea（Tab 缩进支持）+ 右侧预览（677px）、主题下拉（localStorage 记忆）、字数统计、⌘S 保存、「复制到公众号」。
+页面：左侧 textarea（Tab 缩进支持）+ 右侧预览（677px）、主题下拉（localStorage 记忆）、字数统计、⌘S 保存、「复制到公众号」（复制剥离规则与预览页一致，见 §10：摘除头卡，标题走公众号后台标题栏）。
 
 ```mermaid
 sequenceDiagram
