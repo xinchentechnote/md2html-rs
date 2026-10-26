@@ -105,11 +105,11 @@ fn render_mdast_block(node: &Node, ctx: Ctx) -> String {
                     "<p style=\"{}\">{}</p>",
                     s(&[
                         ("font-size", f.base),
-                        ("font-weight", "600"),
-                        ("color", c.heading),
-                        ("line-height", "1.9"),
+                        ("color", c.text),
+                        ("line-height", "1.8"),
                         ("margin", "0"),
-                        ("text-align", "center"),
+                        ("text-align", "justify"),
+                        ("overflow-wrap", "break-word"),
                     ]),
                     inline_children(&p.children, ctx)
                 );
@@ -129,15 +129,15 @@ fn render_mdast_block(node: &Node, ctx: Ctx) -> String {
         }
         Node::Blockquote(b) => {
             let c = &ctx.vars.colors;
-            let r = &ctx.vars.radius;
             let quote_ctx = Ctx { in_quote: true, ..ctx };
             let inner: String = b.children.iter().map(|n| render_mdast_block(n, quote_ctx)).collect();
             format!(
                 "<section style=\"{}\">{inner}</section>",
                 s(&[
-                    ("border", &format!("1.5px dashed {}", c.accent)),
-                    ("border-radius", r.card),
-                    ("padding", "18px 22px"),
+                    ("background", c.accent_light),
+                    ("border-left", &format!("4px solid {}", c.accent)),
+                    ("border-radius", "8px"),
+                    ("padding", "14px 18px"),
                     ("margin", "20px 0"),
                 ])
             )
@@ -518,15 +518,7 @@ fn inline_node(node: &Node, ctx: Ctx) -> String {
         Node::Text(t) => esc(&t.value),
         Node::Strong(st) => {
             let c = &ctx.vars.colors;
-            let style = if ctx.in_quote {
-                s(&[
-                    ("font-weight", "700"),
-                    ("color", c.heading),
-                    ("background", &format!("linear-gradient(180deg, transparent 62%, {} 62%)", c.highlight)),
-                ])
-            } else {
-                s(&[("font-weight", "700"), ("color", c.accent)])
-            };
+            let style = s(&[("font-weight", "700"), ("color", c.accent)]);
             format!("<span style=\"{style}\">{}</span>", inline_children(&st.children, ctx))
         }
         Node::Emphasis(e) => format!("<em style=\"font-style:italic\">{}</em>", inline_children(&e.children, ctx)),

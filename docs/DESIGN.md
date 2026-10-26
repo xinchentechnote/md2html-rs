@@ -218,7 +218,7 @@ flowchart TD
 ```rust
 struct Ctx<'a> {
     vars: &'a Vars,        // 主题变量
-    in_quote: bool,        // 金句卡内：strong 高亮底纹、段落居中
+    in_quote: bool,        // 引用卡内：段落左对齐常规字重、行距 1.8
     tight: bool,           // 列表项内：段落 margin 收紧
     task_done: bool,       // 已勾任务：正文置灰
     list_depth: usize,     // 嵌套层级：>0 时列表加 margin-left:1.5em
@@ -242,11 +242,11 @@ struct Ctx<'a> {
 | h3 | 主题色左侧竖条（4×16px）+ 粗体 |
 | h4+ | 主题色粗体，15px |
 | 段落 p | 15px / 行高 1.75 / 两端对齐 / `overflow-wrap:break-word`；段间距取 `spacing.paragraph` |
-| strong | 主题色加粗；金句卡内改为「黄色底纹渐变高亮」 |
+| strong | 主题色加粗（引用卡内外一致） |
 | em | 常规斜体 |
 | 行内代码 | 主题色浅底圆角 `<code style>` |
 | 代码块 | 深色圆角卡（`codeBg`）+ 逐行 `<span style="display:block">`；`white-space:pre-wrap;word-break:break-all` 防溢出；syntect 着色内联（见 §8） |
-| blockquote（金句卡） | `1.5px dashed accent` 虚线圆角卡、居中粗体 |
+| blockquote（引用卡） | `accentLight` 底 + `4px solid accent` 左竖条、8px 圆角；文字左对齐常规字重 |
 | 有序列表 | 浅底圆角卡 + 主题色圆形序号（支持 `start` 偏移） |
 | 无序列表 | 主题色圆点（6px）；嵌套逐级缩进 1.5em |
 | 任务列表 | ☑/☐ 字符 + 勾选置灰删除线（GFM checked） |
