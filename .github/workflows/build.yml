@@ -25,7 +25,8 @@ jobs:
       - run: cargo test --locked
       - run: cargo build --release
 
-  # 主平台额外产出二进制 artifact；打 v* tag 时发布 Release
+  # 主平台二进制直接挂到 Release（不走 artifact：账户 Actions 存储配额有限，
+  # 且各 job 用 softprops 直传 Release 不需要跨 job 汇总）；打 v* tag 时发布
   release:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: test
@@ -65,7 +66,16 @@ jobs:
       - run: cargo build --release --target ${{ matrix.target }}
         if: matrix.target != 'aarch64-unknown-linux-gnu'
       - name: Smoke
-        run: ./target/${{ matrix.target }}/release/md2html --list-themes
+        shell: bash
+        run: |
+          exe=./target/${{ matrix.target }}/release/md2html
+          [ -f "$exe.exe" ] && exe="$exe.exe"
+          # arm64 交叉产物无法在 x64 runner 上执行，只做存在性检查
+          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-gnu" ]; then
+            test -s "$exe"
+          else
+            "$exe" --list-themes
+          fi
       - name: Package
         shell: bash
         run: |
@@ -73,13 +83,6 @@ jobs:
           exe=target/${{ matrix.target }}/release/md2html
           [ -f "$exe.exe" ] && exe="$exe.exe"
           cp "$exe" dist/${{ matrix.name }}${{ matrix.target == 'x86_64-pc-windows-msvc' && '.exe' || '' }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.name }}
-          path: dist/
-          # artifact 常驻会累积顶爆账户 500MB Actions 存储配额（JS 版踩过）；
-          # Release 挂载的资产不受此影响
-          retention-days: 3
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
@@ -103,11 +106,6 @@ jobs:
         run: |
           mkdir -p dist
           cp target/release/md2html dist/md2html-linux-x64
-      - uses: actions/upload-artifact@v4
-        with:
-          name: md2html-linux-x64
-          path: dist/
-          retention-days: 3
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
