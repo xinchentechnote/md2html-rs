@@ -1,4 +1,4 @@
-# 一条命令，把 Markdown 排进公众号：md2html 的设计与实现
+# 用 Rust 把 Markdown 排进公众号：md2html 的设计与实现
 
 > 声明：自研学习项目，不构成任何生产系统建议。
 
