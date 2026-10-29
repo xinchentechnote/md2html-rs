@@ -1,5 +1,6 @@
 //! mermaid 后处理：把渲染层输出的「代码卡 + data-md2html-mermaid 标记」替换为内嵌 PNG。
-//! 引擎优先级（auto）：本地 mmdc → mermaid.ink 在线服务 → 保留代码卡兜底。
+//! 引擎优先级（auto）：本地 mmdc → mermaid.ink 在线服务，任一引擎失败自动换另一个重试；
+//! ink 请求自带指数退避重试，全部失败才保留代码卡兜底。
 //! 图片以 data URI 内嵌，HTML 单文件自包含。
 
 use std::io::Read;
@@ -63,7 +64,7 @@ fn image_card(png: &[u8], vars: &Vars) -> String {
     )
 }
 
-/// 单图渲染入口（CLI 后处理与 ui-server 共用）：mmdc（本地装了才用）→ ink → 抛错
+/// 单图渲染入口（CLI 后处理与 ui-server 共用）：优先本地 mmdc，失败转 ink，反之亦然
 pub fn render_mermaid_png(
     code: &str,
     engine: &str,
@@ -77,11 +78,23 @@ pub fn render_mermaid_png(
             })?;
             render_with_mmdc(&mmdc, code, vars, scale)
         }
-        "auto" => match find_mmdc() {
-            Some(mmdc) => render_with_mmdc(&mmdc, code, vars, scale),
-            None => render_with_ink(code),
-        },
         "ink" => render_with_ink(code),
+        "auto" => {
+            let mut mmdc_err = None;
+            if let Some(mmdc) = find_mmdc() {
+                match render_with_mmdc(&mmdc, code, vars, scale) {
+                    Ok(png) => return Ok(png),
+                    Err(err) => mmdc_err = Some(err),
+                }
+            }
+            render_with_ink(code).map_err(|ink_err| match mmdc_err {
+                Some(mmdc_err) => {
+                    let brief = truncate_chars(mmdc_err.trim(), 300);
+                    format!("mmdc 失败：{brief}；ink 兜底也失败：{ink_err}")
+                }
+                None => ink_err,
+            })
+        }
         other => Err(format!("未知引擎 \"{other}\"（可选 auto/ink/mmdc/off）")),
     }
 }
@@ -183,19 +196,53 @@ fn render_with_ink(code: &str) -> Result<Vec<u8>, String> {
     // 注意：scale 参数必须配合 width/height，单独使用返回 400
     let url = format!("https://mermaid.ink/img/{b64}?type=png");
     let agent = ureq::AgentBuilder::new().timeout(Duration::from_secs(60)).build();
+    // 在线服务抖动 / 429 限流很常见，单次请求失败不足以放弃整张图：最多 3 次，退避 1s → 3s
+    let mut last_err = String::new();
+    for attempt in 0..3 {
+        if attempt > 0 {
+            std::thread::sleep(Duration::from_secs(if attempt == 1 { 1 } else { 3 }));
+        }
+        match fetch_ink(&agent, &url) {
+            Ok(png) => return Ok(png),
+            Err((retryable, msg)) => {
+                last_err = msg;
+                if !retryable {
+                    break;
+                }
+            }
+        }
+    }
+    Err(last_err)
+}
+
+/// 单次请求 mermaid.ink。第二个返回值表示是否值得重试：
+/// 400/404 说明源码或 base64 有问题，重试无意义；429/5xx/网络错误/响应截断均可重试。
+fn fetch_ink(agent: &ureq::Agent, url: &str) -> Result<Vec<u8>, (bool, String)> {
     let res = agent
-        .get(&url)
+        .get(url)
         .set("user-agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) md2html-rs")
         .call()
         .map_err(|e| match e {
-            ureq::Error::Status(status, _) => format!("mermaid.ink HTTP {status}"),
-            other => format!("mermaid.ink 请求失败: {other}"),
+            ureq::Error::Status(status, _) => {
+                let retryable = status == 429 || status >= 500;
+                (retryable, format!("mermaid.ink HTTP {status}"))
+            }
+            other => (true, format!("mermaid.ink 请求失败: {other}")),
         })?;
     let mut bytes = Vec::new();
     res.into_reader()
         .read_to_end(&mut bytes)
-        .map_err(|e| format!("mermaid.ink 读取失败: {e}"))?;
+        .map_err(|e| (true, format!("mermaid.ink 读取失败: {e}")))?;
     Ok(bytes)
+}
+
+fn truncate_chars(s: &str, max: usize) -> String {
+    if s.chars().count() <= max {
+        return s.to_string();
+    }
+    let mut brief: String = s.chars().take(max).collect();
+    brief.push('…');
+    brief
 }
 
 #[cfg(test)]
@@ -219,5 +266,13 @@ mod tests {
         let html = "<a><section data-md2html-mermaid=\"x\"><section>y</section></section>z";
         let end = find_section_end(html, 3).unwrap();
         assert_eq!(&html[3..end], "<section data-md2html-mermaid=\"x\"><section>y</section></section>");
+    }
+
+    #[test]
+    fn truncate_respects_char_boundaries() {
+        assert_eq!(truncate_chars("abc", 5), "abc");
+        assert_eq!(truncate_chars("中文错误信息很长", 4), "中文错误…");
+        let long = "渲染失败nginx/1.2 gateway timeout".repeat(50);
+        assert_eq!(truncate_chars(&long, 300).chars().count(), 301);
     }
 }

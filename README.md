@@ -35,7 +35,7 @@ graph LR
 ```
 ````
 
-转换时自动渲染成图片内嵌（data URI，单文件自包含）：引擎优先本地 `mmdc`（`npm i -D @mermaid-js/mermaid-cli`，支持主题色联动文章配色；查找顺序 `MD2HTML_MMDC` 环境变量 → `./node_modules/.bin` → `PATH`），未装则走 mermaid.ink 在线渲染，都失败时保留主题色代码卡兜底。`--mermaid off` 关闭。
+转换时自动渲染成图片内嵌（data URI，单文件自包含）：引擎优先本地 `mmdc`（`npm i -D @mermaid-js/mermaid-cli`，支持主题色联动文章配色；查找顺序 `MD2HTML_MMDC` 环境变量 → `./node_modules/.bin` → `PATH`），未装则走 mermaid.ink 在线渲染（网络抖动 / 429 限流自动退避重试）；任一引擎失败会自动换另一个兜底，都失败时才保留主题色代码卡。`--mermaid off` 关闭。
 
 ## 发布到公众号草稿箱（一行命令）
 
