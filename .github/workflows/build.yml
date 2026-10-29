@@ -5,10 +5,16 @@ on:
     branches: [main]
     tags: ['v*']
   pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [macos-latest, ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -24,6 +30,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v')
     needs: test
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -32,9 +39,7 @@ jobs:
           - os: macos-latest
             target: x86_64-apple-darwin
             name: md2html-macos-x64
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            name: md2html-linux-x64
+          # arm64 gnu 交叉编译：私有仓库没有免费 arm 真机 runner
           - os: ubuntu-latest
             target: aarch64-unknown-linux-gnu
             name: md2html-linux-arm64
@@ -72,6 +77,37 @@ jobs:
         with:
           name: ${{ matrix.name }}
           path: dist/
+          # artifact 常驻会累积顶爆账户 500MB Actions 存储配额（JS 版踩过）；
+          # Release 挂载的资产不受此影响
+          retention-days: 3
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+
+  # linux-x64 单独走 Alpine 容器：musl 全静态（CentOS 7 / Alpine 等老 glibc 系统可直接运行，
+  # 与 JS 版 linuxstatic 同理）。Debian 的 musl-gcc wrapper 编不过 ring 的 C 代码（-m64 缺陷），
+  # 交叉编译方案不可行，Alpine 原生构建已本地容器实测通过
+  release-linux-x64:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: test
+    runs-on: ubuntu-latest
+    container: rust:1-alpine
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - run: cargo build --release --locked
+      - name: Smoke
+        run: ./target/release/md2html --list-themes
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp target/release/md2html dist/md2html-linux-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: md2html-linux-x64
+          path: dist/
+          retention-days: 3
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
