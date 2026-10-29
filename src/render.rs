@@ -10,7 +10,7 @@ use crate::themes::Vars;
 use crate::transform::Block;
 use crate::utils::{esc, s};
 
-/// 递归上下文：与 JS 版 deriveCtx 的 patch 字段一致
+/// 递归上下文
 #[derive(Clone, Copy)]
 struct Ctx<'a> {
     vars: &'a Vars,

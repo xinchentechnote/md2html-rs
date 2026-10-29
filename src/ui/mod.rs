@@ -103,7 +103,7 @@ fn route(
                 .to_string(),
             );
         }
-        // 保存的是原始文本，不走 JSON 解析（与 JS 版一致）
+        // 保存的是原始文本，不走 JSON 解析
         (Method::Put, "/api/file") => match file {
             Some(path) => match std::fs::write(path, body) {
                 Ok(()) => return send(200, "application/json; charset=utf-8", r#"{"ok":true}"#.into()),

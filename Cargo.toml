@@ -2,7 +2,7 @@
 name = "md2html-rs"
 version = "0.1.0"
 edition = "2021"
-description = "Markdown → 微信公众号排版 HTML CLI（Rust 实现，样式全内联，可直接复制粘贴发布）"
+description = "Markdown → 微信公众号排版 HTML CLI，样式全内联，可直接复制粘贴发布"
 license = "MIT"
 keywords = ["markdown", "wechat", "html", "cli"]
 

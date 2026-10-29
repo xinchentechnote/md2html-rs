@@ -1,8 +1,8 @@
 # md2html-rs
 
-[md2html](https://github.com/xinchen/md2html)（Node.js 版）的 Rust 实现：Markdown → 微信公众号排版 HTML 的 CLI 工具，主题化、样式全内联、粘贴不丢格式。设计与方案见 [docs/DESIGN.md](docs/DESIGN.md)。
+Markdown → 微信公众号排版 HTML 的 CLI 工具：主题化、样式全内联、粘贴不丢格式。设计与方案见 [docs/DESIGN.md](docs/DESIGN.md)。
 
-同一套渲染管线与结构约定（`parse → transform → render` 纯函数管线、6 套主题、全内联 style、无 class/id），单文件静态二进制，无运行时依赖。
+`parse → transform → render` 纯函数渲染管线，6 套主题、全内联 style（无 class/id），单文件静态二进制，无运行时依赖。
 
 ## 使用
 
@@ -62,7 +62,7 @@ UPDATE_SNAPSHOTS=1 cargo test   # 结构有意变更后更新快照
 cargo build --release           # 单文件二进制 target/release/md2html
 ```
 
-结构（与 JS 版一一对应）：
+结构：
 
 | 模块 | 职责 |
 |---|---|
@@ -79,12 +79,6 @@ cargo build --release           # 单文件二进制 target/release/md2html
 
 技术选型说明：
 
-- **markdown-rs** 与 JS 版同源（wooorm 的 micromark/remark 移植），AST 节点类型一一对应；
+- **markdown-rs**：wooorm 的 micromark/remark 规范的 Rust 实现，产出标准 mdast；
 - **syntect**（regex-fancy 纯 Rust 正则）替代 lowlight/highlight.js：按主题色板动态构建高亮主题，逐行 span 输出，行结构在公众号不丢；
-- 高亮配色为 VSCode Dark+ 风格（与 JS 版快照同为深色代码卡），Rust 版快照独立维护，不与 JS 版逐字节对齐。
-
-## 与 JS 版的差异
-
-- `md2html ui` 的渲染在**服务端**完成（`POST /api/render`）：JS 版 core 可在浏览器直跑，Rust 版 core 在本机进程内——编辑器体验不变；
-- mermaid 本地引擎查找基于环境变量/cwd/PATH（Rust 无 module 目录概念）；
-- 其余行为（主题、结构约定、复制剥离、frontmatter 优先级、发布流程、错误码提示）与 JS 版保持一致。
+- 高亮配色为 VSCode Dark+ 风格（深色代码卡）。

@@ -1,5 +1,5 @@
 //! 纯工具函数：HTML 转义、内联 style 序列化、日期格式化、头尾块剥离、节点取文本。
-//! 与 JS 版 utils.js/parse.js 一一对应，core 其余模块只依赖这里。
+//! core 各模块共用的基础工具。
 
 use markdown::mdast::Node;
 

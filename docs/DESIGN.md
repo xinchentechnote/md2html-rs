@@ -1,8 +1,8 @@
 # md2html-rs 开发设计方案
 
-> Markdown → 微信公众号排版 HTML 的 CLI 工具（Rust 实现）。本文档是 [md2html](../../../md2html)（Node.js 版）同构实现的权威设计：主题化、样式全内联、可直接复制粘贴发布；附浏览器编辑器与公众号草稿箱发布链路。
+> Markdown → 微信公众号排版 HTML 的 CLI 工具。本文档是 md2html-rs 的权威设计：主题化、样式全内联、可直接复制粘贴发布；附浏览器编辑器与公众号草稿箱发布链路。
 >
-> 行为约定与 JS 版保持一致（组件结构、主题色板、frontmatter 优先级、复制剥离规则），差异集中在语言形态带来的两处适配（见 [§17 与 JS 版差异对照](#17-与-js-版差异对照)）。
+> 组件结构、主题色板、frontmatter 优先级、复制剥离规则等行为约定以本文档为准。
 
 ---
 
@@ -24,9 +24,8 @@
 14. [错误处理哲学](#14-错误处理哲学)
 15. [测试策略](#15-测试策略)
 16. [CI 与发布](#16-ci-与发布)
-17. [与 JS 版差异对照](#17-与-js-版差异对照)
-18. [关键决策记录](#18-关键决策记录)
-19. [已知限制与公众号白名单附录](#19-已知限制与公众号白名单附录)
+17. [关键决策记录](#17-关键决策记录)
+18. [已知限制与公众号白名单附录](#18-已知限制与公众号白名单附录)
 
 ---
 
@@ -35,7 +34,7 @@
 **目标**
 
 - CLI 一条命令把 `.md` 转成公众号可直接粘贴的 HTML（样式全内联，粘贴不丢格式）；
-- 与 JS 版**同一套输出契约**：6 套主题、组件结构、头卡/页脚剥离标记完全一致，两版产物可互相替换；
+- **输出契约稳定**：6 套主题、组件结构、头卡/页脚剥离标记由本文档权威约定；
 - 单文件静态二进制（release ≈ 5MB，LTO + strip），无运行时依赖，交叉编译覆盖 macOS(x64/arm64) / Linux(x64/arm64) / Windows(x64)；
 - 浏览器编辑器（`ui` 子命令）与草稿箱发布（`publish` 子命令）全功能对齐。
 
@@ -43,8 +42,7 @@
 
 - 不做公众号 API 直接**群发**（仅到"一行命令进草稿箱"；群发永远手动）；
 - 不做多人协作、云同步、账号体系；
-- 不做 Word/PDF 导出、数学公式（与 JS 版二期节奏同步）；
-- 不追求与 JS 版输出**逐字节一致**（高亮引擎不同，快照独立维护；结构约定一致即可）。
+- 不做 Word/PDF 导出、数学公式；
 
 **运行时零 LLM**：整条链路是确定性规则转换，不调用任何模型 API。
 
@@ -55,7 +53,7 @@
 | 项 | 选型 | 理由 |
 |---|---|---|
 | 语言 | Rust 2021 edition | 单文件静态产物、无 GC 抖动；核心渲染是纯 CPU 字符串处理，Rust 的所有权模型天然适配"树遍历 + 字符串拼接"管线 |
-| Markdown 解析 | `markdown` 1.0（markdown-rs） | **wooorm micromark/remark 的 Rust 移植**，与 JS 版 remark-parse 同源同规范；直接产出标准 mdast（`Node` 枚举），GFM 表格/任务列表/删除线/字面自动链接开箱即用。比 pulldown-cmark 的事件流模型更贴合"AST 级结构变换"的需求 |
+| Markdown 解析 | `markdown` 1.0（markdown-rs） | **wooorm micromark/remark 规范的 Rust 实现**；直接产出标准 mdast（`Node` 枚举），GFM 表格/任务列表/删除线/字面自动链接开箱即用。比 pulldown-cmark 的事件流模型更贴合"AST 级结构变换"的需求 |
 | 代码高亮 | `syntect` 5（regex-fancy） | Sublime 语法引擎，常见语言覆盖全；`regex-fancy` 纯 Rust 正则免 C 依赖（交叉编译友好）。按主题色板**动态构建高亮主题**，保持"主题色驱动代码配色"的架构性质 |
 | CLI | `clap` 4（derive） | 子命令 + 派生宏自文档化；`-h` 自动生成 |
 | 本地服务 | `tiny_http` 0.12 | ui 编辑器用；成熟、极小、阻塞模型够用（单用户本地场景） |
@@ -67,14 +65,14 @@
 
 **依赖共 11 个生产依赖**，全部为纯 Rust 或 rustls 后端，交叉编译无 C 工具链要求（onig 已通过 feature 关闭）。
 
-**为什么核心数据结构用 mdast 而不是自定义 AST**：`markdown` 的 `mdast::Node` 与 JS 版 remark 的节点一一对应（`Heading/ListItem.checked/Table.align/Code.lang`…），transform 的五条规则可以逐条照搬；自定义节点（头卡/图集/页脚）只在**根层**引入 `Block` 包装枚举，嵌套层级保持原生 mdast，避免整棵树重造。
+**为什么核心数据结构用 mdast 而不是自定义 AST**：mdast 节点语义完备（`Heading/ListItem.checked/Table.align/Code.lang`…），transform 的五条规则直接作用在标准节点上；自定义节点（头卡/图集/页脚）只在**根层**引入 `Block` 包装枚举，嵌套层级保持原生 mdast，避免整棵树重造。
 
 ---
 
 ## 3. 总体架构与数据流
 
 ```
-core 三铁律（与 JS 版相同）：
+core 三铁律：
 1. core 是纯函数：render_markdown(md, options) → { html, theme, meta }，不碰文件系统；
 2. 样式 100% 内联：正文无 <style>/<script>/class/id，每块样式都在 style 属性上；
 3. 结构性效果在 AST 层做：编号/图集/页脚/高亮行结构，不依赖 CSS 计数器与 grid。
@@ -128,7 +126,7 @@ md2html-rs/
 │       ├── page.html       # 内嵌编辑器页（include_str!）
 │       └── editor.js       # 内嵌脚本：防抖渲染 / hydrate / ⌘S / 复制
 ├── tests/
-│   ├── fixtures/sample.md  # 元素齐全的验收样例（与 JS 版同一份）
+│   ├── fixtures/sample.md  # 元素齐全的验收样例
 │   ├── __snapshots__/      # 6 主题快照（Rust 版独立基准；不入库，cargo test 自动生成）
 │   ├── render.rs           # 快照 + 渲染行为集成测试
 │   └── cli.rs              # 二进制冒烟测试（CARGO_BIN_EXE）
@@ -142,7 +140,7 @@ md2html-rs/
 ### 5.1 入口签名
 
 ```rust
-// lib.rs —— 与 JS 版 renderMarkdown(md, themeId, options) 等价
+// lib.rs —— 唯一入口
 pub fn render_markdown(md: &str, options: &RenderOptions) -> Result<RenderResult, String>
 
 pub struct RenderOptions {
@@ -160,11 +158,11 @@ pub struct RenderResult {
 }
 ```
 
-`header/footer` 用 `Option<bool>` 三态：`None` 表示"CLI 未表态"，让 frontmatter 决定——对应 JS 版 cac 缺省 `undefined` 的语义（`--footer` 缺席时 frontmatter `footer: true` 仍生效）。
+`header/footer` 用 `Option<bool>` 三态：`None` 表示"CLI 未表态"，让 frontmatter 决定——`--footer` 缺席时 frontmatter `footer: true` 仍生效。
 
 ### 5.2 frontmatter（`frontmatter.rs`）
 
-- 只支持 `key: value` 字符串/布尔子集，与 JS 版正则 `^([A-Za-z_][\w-]*)\s*:\s*(.*)$` 行为一致；键统一小写；
+- 只支持 `key: value` 字符串/布尔子集（正则 `^([A-Za-z_][\w-]*)\s*:\s*(.*)$`）；键统一小写；
 - 值剥首尾各一个引号；`true/false` 以 `bool_of()` 惰性解释；
 - 未闭合的 `---` 块视为无 frontmatter（与 JS 非贪婪正则的失败行为一致）；
 - 支持键：`title / date / theme / header / footer / author / digest / cover`。
@@ -213,7 +211,7 @@ flowchart TD
 
 ### 5.5 render（`render.rs`）
 
-递归遍历 + 按类型分发的组件表；递归上下文与 JS 版 `deriveCtx` 的 patch 字段一一对应：
+递归遍历 + 按类型分发的组件表；递归上下文字段：
 
 ```rust
 struct Ctx<'a> {
@@ -269,20 +267,20 @@ pub struct Theme { id, name, description, vars: Vars }
 pub struct Vars { font: Font, radius: Radius, spacing: Spacing, colors: Colors }
 ```
 
-- 6 套主题只覆盖 `Colors` 十色；`font/radius/spacing` 走 `DEFAULT` 常量（编译期 `const fn theme()` 构造，零运行时合并逻辑——JS 版注册时需要 deep-merge + 缺键校验，Rust 用类型系统在编译期保证变量完整，`Colors` 缺字段直接编译失败）；
+- 6 套主题只覆盖 `Colors` 十色；`font/radius/spacing` 走 `DEFAULT` 常量（编译期 `const fn theme()` 构造，零运行时合并逻辑；类型系统在编译期保证变量完整，`Colors` 缺字段直接编译失败）；
 - 代码配色 `codeTokens` 是全主题共享的 VSCode Dark+ 色板（常量表，见 §8）；
 - `--list-themes` 遍历静态数组输出；
 - 未知主题报错并列出可用 id（`未知主题 "x"，可用主题: moyu, …`）。
 
-首发 6 套色板与 JS 版逐值相同：摸鱼绿 `#07C160` / 红白 `#E34D59` / 深海蓝 `#2A6AE9`（默认）/ 活力橙 `#F76B1C` / 暗夜紫 `#7C5CFC` / 蜜桃粉 `#EC6E8B`。
+6 套主题主色：摸鱼绿 `#07C160` / 红白 `#E34D59` / 深海蓝 `#2A6AE9`（默认）/ 活力橙 `#F76B1C` / 暗夜紫 `#7C5CFC` / 蜜桃粉 `#EC6E8B`。
 
-已知的有意差异：6 套主题的 `muted` 均比 JS 版深（原值白底对比度仅 2.4~2.7:1，日期/标签/题注等 12px 小字难以辨认），统一加深至 WCAG AA 白底 ≥4.5:1，色相不变：摸鱼绿/红白 `#9CA3AF→#6B7280`、深海蓝 `#9AA6B2→#64748B`、活力橙 `#B0A49A→#82705F`、暗夜紫 `#A29BB3→#766C8C`、蜜桃粉 `#B39AA2→#83696F`。
+色板可读性约定：6 套主题的 `muted` 统一取 WCAG AA 达标色（白底 ≥4.5:1；更浅的灰白底对比度仅 2.4~2.7:1，日期/标签/题注等 12px 小字难以辨认），色相保持各主题灰调：摸鱼绿/红白 `#6B7280`、深海蓝 `#64748B`、活力橙 `#82705F`、暗夜紫 `#766C8C`、蜜桃粉 `#83696F`。
 
 ---
 
 ## 8. 代码高亮
 
-JS 版用 lowlight（highlight.js）输出 class 再映射色板；Rust 版用 syntect 直接输出着色 token 段，映射思路等价：
+syntect 直接输出着色 token 段，scope → 色板映射：
 
 ```mermaid
 flowchart TD
@@ -311,9 +309,9 @@ flowchart TD
 | `string.regexp`（后置覆盖） | regexp | `#D16969` |
 | `string`（generic，先匹配） | string | `#CE9178` |
 
-**跨行 token**：`HighlightLines` 在多次 `highlight_line` 调用间保持解析状态，多行字符串/注释颜色自然延续（对应 JS 版手写颜色栈）。工程坑已记录：**每行必须以 `\n` 结尾喂给解析器**，否则 `//` 行注释状态会延续到下一行——这是行级 API 与状态机的语义边界。
+**跨行 token**：`HighlightLines` 在多次 `highlight_line` 调用间保持解析状态，多行字符串/注释颜色自然延续。工程坑已记录：**每行必须以 `\n` 结尾喂给解析器**，否则 `//` 行注释状态会延续到下一行——这是行级 API 与状态机的语义边界。
 
-输出契约与 JS 版一致：空行渲染 `&nbsp;` 占位，行 span 固定 `display:block;white-space:pre-wrap;word-break:break-all;color:codeText`，保证公众号粘贴后行结构不丢。
+输出契约：空行渲染 `&nbsp;` 占位，行 span 固定 `display:block;white-space:pre-wrap;word-break:break-all;color:codeText`，保证公众号粘贴后行结构不丢。
 
 ---
 
@@ -338,7 +336,7 @@ md2html publish <FILE>      发布到公众号草稿箱
 | `--list-themes` | 列出主题 |
 | `-h / -V` | 帮助 / 版本 |
 
-- 多文件批量：每个输入产同名 `.html`；`-o` 仅单文件时生效（与 JS 版一致）；
+- 多文件批量：每个输入产同名 `.html`；`-o` 仅单文件时生效；
 - 进度与错误走 **stderr**，正文片段走 **stdout**——`md2html a.md --stdout | pbcopy` 干净可用；
 - 三态开关的实现：`--footer` 出席 → `Some(true)`，缺席 → `None`（放行 frontmatter）。
 
@@ -346,7 +344,7 @@ md2html publish <FILE>      发布到公众号草稿箱
 
 ## 10. 预览页与复制机制
 
-预览页 = 极简壳 + 正文（`preview.rs`，与 JS 版逐字对应）：
+预览页 = 极简壳 + 正文（`preview.rs`）：
 
 - 灰底居中白色内容列，宽度 **677px**（公众号正文实际渲染宽度，所见即所得）；
 - 右下悬浮「复制到公众号」按钮：克隆正文 → 摘除 `[data-md2html-block="header"]` → `Range.selectNodeContents()` + `document.execCommand('copy')` 写入 **text/html** 富文本 → 公众号后台 ⌘V；
@@ -386,7 +384,7 @@ sequenceDiagram
     S->>S: 写回启动时指定的唯一文件
 ```
 
-**与 JS 版的结构性差异**：JS 版 core 是浏览器可直跑的 ESM，预览在客户端渲染；Rust 版 core 在本机进程内，预览改走 `POST /api/render` 服务端渲染。对外体验不变（debounce 后 ~ms 级返回），编辑器逻辑（缓存、过期丢弃、兜底形态替换）逐点保留。`--mermaid off` 时 `/api/mermaid` 返回 400，客户端保留代码卡。
+**渲染位置**：Rust core 在本机进程内，预览走 `POST /api/render` 服务端渲染（debounce 后 ~ms 级返回），编辑器逻辑（缓存、过期丢弃、兜底形态替换）不变；渲染在服务端还保证编辑器预览与 CLI 产出严格同一引擎。`--mermaid off` 时 `/api/mermaid` 返回 400，客户端保留代码卡。
 
 请求体上限：通用 10MB、mermaid 端点 128KB（超限 413）。
 
@@ -412,7 +410,7 @@ flowchart TD
 ```
 
 - **主题联动**：mmdc 传 `--themeVariables`（primaryColor=accentLight、lineColor=accent、textColor=text…），图与文章配色一致；
-- **mermaid.ink 细节**（JS 版踩坑延续）：URL-safe base64 且去 padding；源码必须以换行结尾否则 400；不带单独 scale 参数；UA 标识 + 60s 超时；
+- **mermaid.ink 细节**：URL-safe base64 且去 padding；源码必须以换行结尾否则 400；不带单独 scale 参数；UA 标识 + 60s 超时；
 - mmdc 超时 60s：`try_wait` 轮询 + 超时 kill（std 无自带 timeout）；
 - `data URI` 内嵌保证 HTML 单文件自包含；publish 场景后续可复用图片管线转存微信（TODO）。
 
@@ -481,7 +479,7 @@ sequenceDiagram
 
 ## 15. 测试策略
 
-与 JS 版同构：**快照让回归验证不需要人眼**。
+**快照让回归验证不需要人眼**。
 
 | 层 | 内容 | 位置 |
 |---|---|---|
@@ -501,45 +499,33 @@ sequenceDiagram
 ```mermaid
 flowchart TD
     A["push / PR / v* tag"] --> T["test job × 3 OS<br/>macOS / Ubuntu / Windows<br/>cargo test --locked + cargo build --release"]
-    T -->|"v* tag"| R["release job × 5 target<br/>macos-arm64 / macos-x64<br/>linux-x64 / linux-arm64（交叉 + musl 可选）<br/>win-x64"]
+    T -->|"v* tag"| R["release 矩阵 × 4<br/>macos-arm64 / macos-x64<br/>linux-arm64（交叉）/ win-x64"]
+    T -->|"v* tag"| M["linux-x64<br/>Alpine 容器原生构建<br/>musl 全静态"]
     R --> S["冒烟：--list-themes"]
-    S --> AR["上传 artifact"]
-    AR --> REL["GitHub Release（softprops）"]
+    M --> S2["冒烟：--list-themes"]
+    S --> REL["GitHub Release（softprops 直传）"]
+    S2 --> REL
 ```
 
-- 交叉编译仅 linux-arm64 需要 `gcc-aarch64-linux-gnu` 链接器，其余目标原生构建；
+- linux-x64 用 musl 全静态（CentOS 7 / Alpine 等老 glibc 系统可直接运行）：Debian 的 musl-gcc wrapper 有 `-m64` 缺陷编不过 ring 的 C 代码，交叉方案不可行，走 Alpine 容器原生构建；
+- 其余目标原生构建，仅 linux-arm64 交叉需要 `gcc-aarch64-linux-gnu` 链接器；
+- Release 资产由各 job 用 softprops 直传，不经 artifact（账户 Actions 存储配额有限）；
 - `rust-cache` 加速；`--locked` 保证 Cargo.lock 一致；
 - 本地打包即 `cargo build --release`（lto + strip，产物 ≈5MB）。
 
 ---
 
-## 17. 与 JS 版差异对照
+## 17. 关键决策记录
 
-| 维度 | JS 版 | Rust 版 | 影响 |
-|---|---|---|---|
-| 输出契约 | — | **完全一致** | 两版产物可互换，主题/结构/剥离标记同约定 |
-| 代码高亮引擎 | lowlight（highlight.js class 映射） | syntect scope 映射 | token 切分粒度不同 → 快照独立维护；配色同为 VSCode Dark+ 风格 |
-| ui 渲染位置 | core 浏览器直跑 | `POST /api/render` 服务端渲染 | 体验不变（本地回环）；编辑器脚本多了 fetch 层 |
-| mmdc 定位 | 相对模块目录 `../node_modules/.bin` | `MD2HTML_MMDC` → cwd `./node_modules/.bin` → `PATH` | Rust 无 module 目录概念；PATH 查找更符合独立二进制形态 |
-| `--mermaid off` | 引擎校验抛错被 catch → 告警 + 代码卡 | 后处理入口直接跳过（无告警） | 行为超集，语义更干净 |
-| 主题完整性校验 | 注册时运行时 deep-merge + 缺键报错 | 类型系统编译期保证（`const fn` 构造） | 运行时零校验成本 |
-| 三态 CLI 选项 | cac 缺省 undefined | `--footer` 出席/缺席 → `Some(true)`/`None` | 语义对齐 |
-| 二进制 | pkg 打包 ~40MB+ | cargo release ≈5MB，交叉编译原生支持 | 分发成本显著更低 |
-
----
-
-## 18. 关键决策记录
-
-- **2026-10-09 选型 markdown-rs 而非 pulldown-cmark**：前者与 JS 版 remark 同源、直接产 mdast，transform 五规则可逐条照搬；pulldown-cmark 事件流需要自建树，反而多一层。
+- **2026-10-09 选型 markdown-rs 而非 pulldown-cmark**：前者直接产出 mdast，transform 五规则直接作用在标准节点上；pulldown-cmark 事件流需要自建树，反而多一层。
 - **2026-10-09 syntect regex-fancy 关闭 onig**：交叉编译免 C 工具链；fancy-regex 覆盖常用语法集（js/ts/rust/bash/python/json…）。
 - **2026-10-09 逐行喂 syntect 必须补 `\n`**：行级 API 靠换行复位行内状态（行注释/字符串），否则状态跨行延续把下一行染成注释色。已写进 §8 与代码注释。
-- **2026-10-09 `header/footer` 三态 `Option<bool>`**：CLI 缺席 ≠ false，否则 frontmatter `footer: true` 会被 CLI 默认值覆盖，破坏 JS 版优先级语义。
-- **2026-10-09 ui 渲染走服务端**：Rust core 无法进浏览器；本地回环延迟可忽略，换取与 CLI **严格同一**渲染引擎（比 JS 版"浏览器直跑同构"更强的一致性保证）。
-- **2026-10-09 高亮快照独立**：不追求与 JS 版逐字节一致；结构约定一致 + 视觉风格一致即可，避免为对齐字节做脆弱的 hack。
+- **2026-10-09 `header/footer` 三态 `Option<bool>`**：CLI 缺席 ≠ false，否则 frontmatter `footer: true` 会被 CLI 默认值覆盖，破坏"参数 > frontmatter > 默认"的优先级语义。
+- **2026-10-09 ui 渲染走服务端**：Rust core 无法进浏览器；本地回环延迟可忽略，换取编辑器预览与 CLI **严格同一**渲染引擎。
 
 ---
 
-## 19. 已知限制与公众号白名单附录
+## 18. 已知限制与公众号白名单附录
 
 **已知限制**
 
@@ -548,7 +534,7 @@ flowchart TD
 - `<a>` 对多数个人号无效 → 已按"主题色文字"降级；
 - 公众号编辑器偶尔对粘贴内容二次清洗：首发前每主题人工 checklist 必过（6 主题 × §6 十项元素）。
 
-**白名单要点（实现约束，与 JS 版相同）**
+**白名单要点（实现约束）**
 
 - 允许标签：`section/p/span/strong/em/img/table/tr/td/blockquote/br/code`；
 - 允许内联样式：`color/background/font-*/margin/padding/border*/display:flex/text-align/line-height/letter-spacing/white-space/word-break/border-radius/overflow-wrap`；

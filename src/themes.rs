@@ -1,5 +1,5 @@
 //! 主题系统：共享一套渲染器，主题 = 色板数据。
-//! 6 套主题只覆盖 colors，其余变量（字体/圆角/间距/代码配色）走默认值——与 JS 版 base.js 一致。
+//! 6 套主题只覆盖 colors，其余变量（字体/圆角/间距/代码配色）走默认值。
 
 pub const DEFAULT_THEME: &str = "deepblue";
 
@@ -90,7 +90,7 @@ const fn theme(
     Theme { id, name, description, vars: Vars { colors, ..DEFAULT } }
 }
 
-// muted 列与 JS 版不同：原值白底对比度仅 2.4~2.7，日期/标签/题注等 12px 小字难以辨认，
+// muted 列取 WCAG AA 达标色（白底 ≥4.5:1）：更浅的灰在白底对比度仅 2.4~2.7，日期/标签/题注等 12px 小字难以辨认，
 // 统一加深至 WCAG AA（白底 ≥4.5:1），色相保持各主题原本的灰调，且仍明显浅于正文色。
 pub static THEMES: &[Theme] = &[
     theme(
@@ -213,7 +213,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn order_and_ids_match_js_version() {
+    fn order_and_ids_stable() {
         let ids: Vec<_> = list_themes().iter().map(|t| t.id).collect();
         assert_eq!(ids, ["moyu", "redwhite", "deepblue", "orange", "grape", "peach"]);
     }

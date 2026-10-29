@@ -8,7 +8,7 @@ use syntect::easy::HighlightLines;
 use syntect::highlighting::{Color, StyleModifier, Theme, ThemeItem, ThemeSettings};
 use syntect::parsing::SyntaxSet;
 
-/// 代码块统一深色卡片（VSCode Dark+ 配色），所有主题共用（与 JS 版 base.js 一致）
+/// 代码块统一深色卡片（VSCode Dark+ 配色），所有主题共用
 const PALETTE: &[(&str, &str)] = &[
     ("keyword", "#C586C0"),
     ("built_in", "#4EC9B0"),

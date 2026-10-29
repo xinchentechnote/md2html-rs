@@ -60,7 +60,7 @@ pub fn render_markdown(md: &str, options: &RenderOptions) -> Result<RenderResult
         .unwrap_or(DEFAULT_THEME);
     let theme = themes::get_theme(theme_id)?;
 
-    // 与 JS 版一致：fm.title 参与标题兜底链（CLI title > frontmatter title > h1 > 无标题）
+    // 标题兜底链：CLI title > frontmatter title > h1 > 无标题
     let title = options
         .title
         .clone()
