@@ -5,6 +5,7 @@
 //!   ImageCard    单张顶层图片
 //!   FooterCard   文末三连页脚
 //!   MermaidBlock mermaid 代码块（渲染层给"代码卡+标记"兜底形态，后处理换成图片）
+//!   MathBlock    math 代码块（渲染层出 KaTeX 全内联 HTML，失败兜底回代码卡）
 //! 编号/图集必须在 AST 层做：公众号剥离 class 后 CSS 计数器与 grid 全部失效。
 
 use crate::frontmatter::Frontmatter;
@@ -20,6 +21,7 @@ pub enum Block {
     ImageCard { image: markdown::mdast::Image },
     FooterCard,
     MermaidBlock { code: String, original: markdown::mdast::Code },
+    MathBlock { latex: String, original: markdown::mdast::Code },
 }
 
 #[derive(Debug, Clone)]
@@ -161,6 +163,7 @@ fn finish(blocks: Vec<Block>, options: &TransformOptions) -> Vec<Block> {
     }
 
     // 5. mermaid 代码块 → MermaidBlock（渲染层给"代码卡+标记"兜底形态，后处理换成图片）
+    //    math 代码块 → MathBlock（渲染层出 KaTeX 全内联 HTML；math::normalize 已把 $$ 块归一成此形态）
     grouped
         .into_iter()
         .map(|block| match block {
@@ -168,6 +171,8 @@ fn finish(blocks: Vec<Block>, options: &TransformOptions) -> Vec<Block> {
                 let lang = code.lang.as_deref().unwrap_or("").split_whitespace().next();
                 if lang == Some("mermaid") {
                     Block::MermaidBlock { code: code.value.clone(), original: code }
+                } else if matches!(lang, Some("math" | "latex" | "tex")) {
+                    Block::MathBlock { latex: code.value.clone(), original: code }
                 } else {
                     Block::Mdast(Node::Code(code))
                 }
@@ -293,6 +298,15 @@ mod tests {
         assert!(found
             .iter()
             .any(|b| matches!(b, Block::Mdast(Node::Code(c)) if c.lang.as_deref() == Some("js"))));
+    }
+
+    #[test]
+    fn math_code_block_marked() {
+        let found = blocks("```math\nQ_{net}=1\n```\n\n```latex\nx^2\n```\n\n```rust\nfn main() {}\n```");
+        assert_eq!(found.iter().filter(|b| matches!(b, Block::MathBlock { .. })).count(), 2);
+        assert!(found
+            .iter()
+            .any(|b| matches!(b, Block::Mdast(Node::Code(c)) if c.lang.as_deref() == Some("rust"))));
     }
 
     #[test]

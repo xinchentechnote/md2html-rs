@@ -42,7 +42,7 @@
 
 - 不做公众号 API 直接**群发**（仅到"一行命令进草稿箱"；群发永远手动）；
 - 不做多人协作、云同步、账号体系；
-- 不做 Word/PDF 导出、数学公式；
+- 不做 Word/PDF 导出；数学公式仅支持 KaTeX 语法，不追求完整 TeX 排版系统兼容；
 
 **运行时零 LLM**：整条链路是确定性规则转换，不调用任何模型 API。
 
@@ -190,6 +190,7 @@ pub enum Block {
     ImageCard   { image: Image },                   // ③ 单图段落
     FooterCard,                                     // ④ 三连页脚
     MermaidBlock { code, original: Code },          // ⑤ mermaid 代码块
+    MathBlock { latex, original: Code },             // ⑤ math/latex/tex 公式块
 }
 ```
 
@@ -204,7 +205,7 @@ flowchart TD
     F --> G{"footer 开启?<br/>CLI > frontmatter > false"}
     G -->|"是"| H["④ 文末追加 FooterCard"]
     G -->|"否"| I
-    H --> I["⑤ lang 首词 = mermaid 的 Code<br/>→ MermaidBlock（代码卡 + base64 标记）"]
+    H --> I["⑤ 识别特殊 Code<br/>mermaid → MermaidBlock<br/>math/latex/tex → MathBlock"]
 ```
 
 为什么必须在 AST 层做：公众号编辑器会剥掉 class，CSS 计数器、grid、伪元素全部失效——编号、图集、页脚必须是**真实 DOM 结构**。

@@ -26,7 +26,7 @@
 
 - [x] 代码高亮内联
 - [x] 快照测试
-- [ ] 数学公式（二期）
+- [x] 数学公式（KaTeX 服务端渲染）
 - [ ] UI 编辑器（二期）
 
 ## 纯中文标题的编号验证
@@ -81,6 +81,16 @@ const RESULT = highlight(tree).join('\n') // → 每行一个 <span>
 ![图集一](https://images.example.com/a.png)
 ![图集二](https://images.example.com/b.png)
 ![图集三](https://images.example.com/c.png)
+
+### 数学公式
+
+假设已有买卖在途全部成交，净预估持仓等于实盘持仓加买入、减卖出（KaTeX 服务端渲染，样式全内联）：
+
+$$ Q_{net}=Q_{rt}+B_p-S_p $$
+
+行内写法如 $Q_{rt}=110{,}000$ 同样支持。代入数据：
+
+$$ Q_{net}=110{,}000+10{,}000-5{,}000=115{,}000\text{ 股} $$
 
 ## END 开始使用
 

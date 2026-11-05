@@ -102,3 +102,38 @@ fn unknown_theme_fails_cleanly() {
     let stderr = String::from_utf8_lossy(&out.stderr);
     assert!(stderr.contains("未知主题"), "{stderr}");
 }
+
+#[test]
+fn math_renders_inline_and_off_keeps_literal() {
+    let tmp = tempfile::tempdir().unwrap();
+    let md_path = tmp.path().join("m.md");
+    std::fs::write(&md_path, "$$ Q_{net}=1 $$").unwrap();
+
+    // 默认 auto：块级公式渲染为全内联 KaTeX HTML
+    let out = bin()
+        .arg(md_path.display().to_string())
+        .arg("--stdout")
+        .output()
+        .unwrap();
+    assert!(out.status.success());
+    let html = String::from_utf8_lossy(&out.stdout);
+    assert!(html.contains("display:inline-table"), "块级公式应为 vlist 布局: {html}");
+
+    // --math off：保持字面输出
+    let out = bin()
+        .arg(md_path.display().to_string())
+        .args(["--stdout", "--math", "off"])
+        .output()
+        .unwrap();
+    let html = String::from_utf8_lossy(&out.stdout);
+    assert!(html.contains("$$ Q_{net}=1 $$"), "off 时保持字面: {html}");
+
+    // 非法值干净报错
+    let out = bin()
+        .arg(md_path.display().to_string())
+        .args(["--stdout", "--math", "wat"])
+        .output()
+        .unwrap();
+    assert!(!out.status.success());
+    assert!(String::from_utf8_lossy(&out.stderr).contains("未知 math 模式"));
+}

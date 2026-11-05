@@ -6,6 +6,7 @@
 pub mod config;
 pub mod frontmatter;
 pub mod highlight;
+pub mod math;
 pub mod mermaid;
 pub mod open_browser;
 pub mod parse;
@@ -26,13 +27,21 @@ use crate::transform::{transform, TransformOptions};
 
 pub const DEFAULT_THEME: &str = themes::DEFAULT_THEME;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct RenderOptions {
     pub theme: Option<String>,
     pub title: Option<String>,
     pub date: Option<String>,
     pub header: Option<bool>,
     pub footer: Option<bool>,
+    /// 数学公式渲染（KaTeX 服务端）。默认开启；false（--math off）时公式保持字面输出
+    pub math: bool,
+}
+
+impl Default for RenderOptions {
+    fn default() -> Self {
+        RenderOptions { theme: None, title: None, date: None, header: None, footer: None, math: true }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -72,8 +81,10 @@ pub fn render_markdown(md: &str, options: &RenderOptions) -> Result<RenderResult
         options.footer,
         &fm,
     );
-    let blocks = transform(parse::parse_markdown(body), &opts);
-    let html = render::render(&blocks, &theme.vars);
+    // 行首 $$...$$ 预先归一为 ```math 围栏：公式原文走 Code 节点，避开 md 转义/强调解析
+    let body = if options.math { math::normalize_display_math(body) } else { body.to_string() };
+    let blocks = transform(parse::parse_markdown(&body), &opts);
+    let html = render::render(&blocks, &theme.vars, options.math);
 
     // 显式 title/frontmatter 优先，h1 仅兜底（header 开启时头卡已按此规则定题）
     let h1_title = blocks.iter().find_map(|b| match b {

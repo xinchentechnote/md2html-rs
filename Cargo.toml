@@ -28,6 +28,8 @@ tempfile = "3"
 dirs = "5"
 # 文件监听：--watch
 notify = "6"
+# katex：内嵌 KaTeX 跑在 QuickJS 里，纯 Rust 服务端渲染公式（离线、无浏览器无子进程）
+katex = "0.4"
 
 [profile.release]
 strip = true

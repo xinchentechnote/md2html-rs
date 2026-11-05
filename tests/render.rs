@@ -203,3 +203,29 @@ fn links_degrade_to_colored_text() {
     assert!(!result.html.contains("<a "), "链接降级不输出 <a>");
     assert!(result.html.contains("text-decoration:underline"));
 }
+
+#[test]
+fn math_keeps_subscripts_visible_and_invalid_source_intact() {
+    let result = render(
+        "$$ Q_{rt}=Q_0+B_f-S_f $$\n\n坏公式 $\\unknownmacro{x}$ 不应丢定界符。",
+        "moyu",
+        Some(false),
+        Some(false),
+    );
+    assert!(result.html.contains(">r</span>") && result.html.contains(">t</span>"));
+    assert!(result.html.contains("font-size:0.7em"), "下标字号应完整输出");
+    assert!(result.html.contains("overflow-x:visible"), "短公式不能被 Safari 滚动容器裁切");
+    assert!(result.html.contains("$\\unknownmacro{x}$"), "无效公式应原样保留");
+}
+
+#[test]
+fn nested_and_aliased_math_fences_render() {
+    let result = render(
+        "- 列表公式\n\n  ```tex\n  x_1=1\n  ```",
+        "moyu",
+        Some(false),
+        Some(false),
+    );
+    assert!(result.html.contains("font-size:1.21em"), "列表内 tex 围栏也应渲染为公式");
+    assert!(!result.html.contains("background:#1E1E1E"), "不能退化为代码卡");
+}

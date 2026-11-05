@@ -6,6 +6,7 @@ use markdown::mdast::{AlignKind, Node};
 use markdown::mdast;
 
 use crate::highlight;
+use crate::math::{self, Segment};
 use crate::themes::Vars;
 use crate::transform::Block;
 use crate::utils::{esc, s};
@@ -18,17 +19,19 @@ struct Ctx<'a> {
     tight: bool,
     task_done: bool,
     list_depth: usize,
+    /// 数学公式渲染开关（--math off 时公式保持字面输出）
+    math: bool,
 }
 
 impl<'a> Ctx<'a> {
-    fn new(vars: &'a Vars) -> Self {
-        Ctx { vars, in_quote: false, tight: false, task_done: false, list_depth: 0 }
+    fn new(vars: &'a Vars, math: bool) -> Self {
+        Ctx { vars, in_quote: false, tight: false, task_done: false, list_depth: 0, math }
     }
 }
 
 /// 入口：transform 产物 → 内联 HTML（最外层 root section）
-pub fn render(blocks: &[Block], vars: &Vars) -> String {
-    let ctx = Ctx::new(vars);
+pub fn render(blocks: &[Block], vars: &Vars, math: bool) -> String {
+    let ctx = Ctx::new(vars, math);
     let inner: String = blocks.iter().map(|b| render_block(b, ctx)).collect();
     let f = &vars.font;
     let c = &vars.colors;
@@ -53,6 +56,7 @@ fn render_block(block: &Block, ctx: Ctx) -> String {
         Block::ImageCard { image } => image_card(image, ctx),
         Block::FooterCard => footer_card(ctx),
         Block::MermaidBlock { code, original } => mermaid_block(code, original, ctx),
+        Block::MathBlock { latex, original } => math_block(latex, original, ctx),
         Block::Mdast(node) => render_mdast_block(node, ctx),
     }
 }
@@ -143,6 +147,9 @@ fn render_mdast_block(node: &Node, ctx: Ctx) -> String {
             )
         }
 
+        Node::Code(code) if is_math_lang(code.lang.as_deref()) => {
+            math_block(&code.value, code, ctx)
+        }
         Node::Code(code) => code_block(&code.value, code.lang.as_deref(), ctx),
 
         Node::List(list) => {
@@ -509,13 +516,44 @@ fn mermaid_block(code: &str, original: &mdast::Code, ctx: Ctx) -> String {
     )
 }
 
+/// 块级公式：KaTeX 全内联 HTML 居中展示；解析失败或 --math off 兜底回代码卡
+fn math_block(latex: &str, original: &mdast::Code, ctx: Ctx) -> String {
+    if ctx.math {
+        if let Some(inner) = math::render_math(latex, true) {
+            // Safari 会裁掉横向滚动容器中由 KaTeX 相对定位的上下标。常规公式保持
+            // overflow 可见；只有确实可能超宽的公式才启用滚动，并留足垂直内边距。
+            let long = latex.chars().count() > 80 || latex.contains("\\begin{");
+            let overflow = if long { "auto" } else { "visible" };
+            let padding = if long { "8px 4px 10px" } else { "4px 0 6px" };
+            return format!(
+                "<section style=\"{}\">{inner}</section>",
+                s(&[
+                    ("margin", "14px 0"),
+                    ("padding", padding),
+                    ("text-align", "center"),
+                    ("overflow-x", overflow),
+                    ("line-height", "1.5"),
+                ])
+            );
+        }
+    }
+    code_block(&original.value, original.lang.as_deref(), ctx)
+}
+
+fn is_math_lang(lang: Option<&str>) -> bool {
+    matches!(
+        lang.and_then(|s| s.split_whitespace().next()),
+        Some("math" | "latex" | "tex")
+    )
+}
+
 fn inline_children(nodes: &[Node], ctx: Ctx) -> String {
     nodes.iter().map(|n| inline_node(n, ctx)).collect()
 }
 
 fn inline_node(node: &Node, ctx: Ctx) -> String {
     match node {
-        Node::Text(t) => esc(&t.value),
+        Node::Text(t) => inline_text(&t.value, ctx),
         Node::Strong(st) => {
             let c = &ctx.vars.colors;
             let style = s(&[("font-weight", "700"), ("color", c.accent)]);
@@ -563,4 +601,27 @@ fn inline_node(node: &Node, ctx: Ctx) -> String {
             .map(|children| inline_children(children, ctx))
             .unwrap_or_default(),
     }
+}
+
+/// Text 节点：行内 $...$ / $$...$$ 切分渲染（--math off 或解析失败时保持字面输出）
+fn inline_text(value: &str, ctx: Ctx) -> String {
+    if !ctx.math {
+        return esc(value);
+    }
+    math::split_inline_math(value)
+        .iter()
+        .map(|seg| match seg {
+            Segment::Literal(text) => esc(text),
+            Segment::Math { latex, display } => {
+                match math::render_math(latex, *display) {
+                    Some(html) => html,
+                    // 无效 LaTeX 不应吞掉定界符或伪装成代码，原样保留便于修正。
+                    None => {
+                        let delimiter = if *display { "$$" } else { "$" };
+                        format!("{delimiter}{}{delimiter}", esc(latex))
+                    }
+                }
+            }
+        })
+        .collect()
 }

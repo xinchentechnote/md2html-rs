@@ -54,6 +54,9 @@ struct Cli {
     /// mermaid 渲染引擎：auto（本地 mmdc → 在线 ink）| ink | mmdc | off
     #[arg(long, default_value = "auto")]
     mermaid: String,
+    /// 数学公式渲染：auto（KaTeX 服务端渲染）| off（保持字面输出）
+    #[arg(long, default_value = "auto")]
+    math: String,
     /// 监听文件变更并重新生成（单文件）
     #[arg(short, long)]
     watch: bool,
@@ -134,6 +137,10 @@ fn run_convert(cli: &Cli) -> i32 {
         eprintln!("✖ {err}");
         return 1;
     }
+    if let Err(err) = validate_math(&cli.math) {
+        eprintln!("✖ {err}");
+        return 1;
+    }
 
     let mut first_out: Option<String> = None;
     for file in &cli.files {
@@ -176,6 +183,7 @@ fn convert_one(file: &str, cli: &Cli) -> Result<Option<String>, String> {
             theme: cli.theme.clone(),
             header: Some(!cli.no_header),
             footer: Some(cli.footer),
+            math: cli.math != "off",
             ..Default::default()
         },
     )?;
@@ -295,6 +303,13 @@ fn validate_mermaid(engine: &str) -> Result<(), String> {
     match engine {
         "auto" | "ink" | "mmdc" | "off" => Ok(()),
         other => Err(format!("未知 mermaid 引擎 \"{other}\"（可选 auto/ink/mmdc/off）")),
+    }
+}
+
+fn validate_math(mode: &str) -> Result<(), String> {
+    match mode {
+        "auto" | "off" => Ok(()),
+        other => Err(format!("未知 math 模式 \"{other}\"（可选 auto/off）")),
     }
 }
 

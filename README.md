@@ -37,6 +37,18 @@ graph LR
 
 转换时自动渲染成图片内嵌（data URI，单文件自包含）：引擎优先本地 `mmdc`（`npm i -D @mermaid-js/mermaid-cli`，支持主题色联动文章配色；查找顺序 `MD2HTML_MMDC` 环境变量 → `./node_modules/.bin` → `PATH`），未装则走 mermaid.ink 在线渲染（网络抖动 / 429 限流自动退避重试）；任一引擎失败会自动换另一个兜底，都失败时才保留主题色代码卡。`--mermaid off` 关闭。
 
+### 数学公式
+
+行内 `$Q_{rt}=110{,}000$`、块级 `$$ ... $$` 与 ` ```math ` 围栏三种写法都支持（KaTeX 语法；围栏也接受 `latex` / `tex` 别名）：
+
+```markdown
+$$ Q_{net}=110{,}000+10{,}000-5{,}000=115{,}000\text{ 股} $$
+```
+
+服务端 KaTeX 渲染（katex crate 内嵌 QuickJS，离线可用、无浏览器无子进程），输出把布局样式全部转成内联 style——不产生 class/script，公众号粘贴不丢。公式字体走系统衬线栈，`\text{}` 中文随文章字体；短公式保持可见溢出以兼容 Safari 的上下标定位，长公式与矩阵才启用横向滚动。`--math off` 关闭（公式保持字面输出）。
+
+已知限制：`\Large` 之外的特殊字体（花体/哥特体）与大号定界符因无 KaTeX webfont 会用系统字体近似；`\overrightarrow`、`\overbrace` 等依赖 SVG/伪元素的构造在公众号里可能不显示（预览正常）；行内 `$...$` 里的 `\\` 换行会被 markdown 转义，矩阵类多行公式请用块级 `$$` 或 ` ```math ` 写法。
+
 ## 发布到公众号草稿箱（一行命令）
 
 ```bash
@@ -70,6 +82,7 @@ cargo build --release           # 单文件二进制 target/release/md2html
 | `src/transform.rs` | h1→标题卡、h2 编号、连续图→图集、mermaid 标记、页脚注入 |
 | `src/render.rs` | 组件分发表 + 全部块级/行内组件，样式 100% 内联 |
 | `src/highlight.rs` | syntect 高亮，按主题 codeTokens 色板构建，逐行 span |
+| `src/math.rs` | KaTeX 公式：`$$` 归一、行内切分、katex crate 渲染 + class 样式内联化 |
 | `src/themes.rs` | 6 套主题 = 纯色板数据，共享默认字体/圆角/间距/代码配色 |
 | `src/preview.rs` | 预览页壳（677px + 复制按钮） |
 | `src/mermaid.rs` | mmdc → mermaid.ink → 代码卡兜底，data URI 内嵌 |
@@ -81,4 +94,5 @@ cargo build --release           # 单文件二进制 target/release/md2html
 
 - **markdown-rs**：wooorm 的 micromark/remark 规范的 Rust 实现，产出标准 mdast；
 - **syntect**（regex-fancy 纯 Rust 正则）替代 lowlight/highlight.js：按主题色板动态构建高亮主题，逐行 span 输出，行结构在公众号不丢；
+- **katex**：xu-cheng/katex-rs，KaTeX JS（含 mhchem）内嵌跑在 QuickJS 里，纯 Rust 编译离线渲染；布局 CSS 按 katex.css 0.16 扁平化为内联 style；
 - 高亮配色为 VSCode Dark+ 风格（深色代码卡）。
